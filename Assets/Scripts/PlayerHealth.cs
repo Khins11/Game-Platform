@@ -6,63 +6,74 @@ using UnityEngine;
 public class PlayerHealth : MonoBehaviour
 {
     public int maxHealth = 3;
+    public HealthUI healthUI;
+    
     private int currentHealth;
-    public HealthUI healthUI; // <-- Variabel untuk referensi ke UI
-
     private SpriteRenderer spriteRenderer;
 
-    public static event Action OnPlayedDied;
+    public static event Action OnPlayedDied; 
+
+    private void Awake()
+    {
+        // Baris GameController.OnReset dihapus dari sini
+        HealthItem.OnHealthCollect += Heal;
+    }
+
+    private void OnDestroy()
+    {
+        // Baris GameController.OnReset dihapus dari sini
+        HealthItem.OnHealthCollect -= Heal;
+    }
 
     void Start()
     {
-        ResetHealth();
         spriteRenderer = GetComponent<SpriteRenderer>();
-        GameController.OnReset += ResetHealth;
-        HealthItem.OnHealthCollect += Heal;
+        // Method ResetHealth tetap dipanggil di sini, jadi kesehatan akan
+        // selalu penuh setiap kali scene/game dimulai.
+        ResetHealth();
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // Cek jika yang bertabrakan punya script EnemyAI
         if (collision.GetComponent<EnemyAI>())
         {
-            // Untuk sementara, kita anggap setiap musuh memberi 1 damage
-            // Ini karena script EnemyAI kita belum punya variabel 'damage'
-            TakeDamage(1); // <-- DIUBAH DARI enemy.damage
+            TakeDamage(1);
         }
     }
 
     void Heal(int amount)
     {
-        currentHealth += amount;
-        if (currentHealth > maxHealth)
+        currentHealth = Mathf.Min(currentHealth + amount, maxHealth); // Cara lebih aman untuk heal
+        
+        if (healthUI != null)
         {
-            currentHealth = maxHealth;
+            healthUI.UpdateHearts(currentHealth);
         }
-        healthUI.UpdateHearts(currentHealth);
     }
 
     void ResetHealth()
     {
         currentHealth = maxHealth;
-        healthUI.SetMaxHearts(maxHealth);
+        if (healthUI != null)
+        {
+            healthUI.SetMaxHearts(maxHealth);
+        }
     }
 
     private void TakeDamage(int damage)
     {
         currentHealth -= damage;
 
-        // Panggil nama method yang benar
         if (healthUI != null)
         {
-            healthUI.UpdateHearts(currentHealth); // <-- DIUBAH DARI .Update()
+            healthUI.UpdateHearts(currentHealth);
         }
 
         StartCoroutine(FlashRed());
+
         if (currentHealth <= 0)
         {
             Debug.Log("Player Mati!");
-            // Di sini Anda bisa menambahkan logika untuk game over, restart level, dll.
             OnPlayedDied.Invoke();
         }
     }

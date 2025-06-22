@@ -4,80 +4,121 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
-
+using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour
 {
-    int progressAmount;
+    [Header("Pengaturan Progres & Level")]
     public Slider progressSlider;
-
+    public List<GameObject> levels;
+    
+    [Header("Referensi Objek & UI")]
     public GameObject player;
     public GameObject LoadCanvas;
-    public List<GameObject> levels;
-    private int currentLevelIndex = 0;
-
     public GameObject gameOverScreen;
+    public GameObject gameWinScreen;
     public TMP_Text survivedText;
+
+    // Variabel Internal
+    private int progressAmount;
+    private int currentLevelIndex = 0;
     private int survivedLevelsCount;
-    public static event Action OnReset;
+    
+    // Subscribe/Unsubscribe dari event
+    private void OnEnable()
+    {
+        Gem.OnGemCollect += IncreaseProgressAmount;
+        HoldToLoadLevel.OnHoldComplete += LoadNextLevel;
+        PlayerHealth.OnPlayedDied += GameOver;
+    }
+
+    private void OnDisable()
+    {
+        Gem.OnGemCollect -= IncreaseProgressAmount;
+        HoldToLoadLevel.OnHoldComplete -= LoadNextLevel;
+        PlayerHealth.OnPlayedDied -= GameOver;
+    }
+
     void Start()
     {
         progressAmount = 0;
-        progressSlider.value = 0;
-        Gem.OnGemCollect += IncreaseProgressAmount;
-        HoldToLoadLevel.OnHoldComplete += LoadNextLevel;
-        PlayerHealth.OnPlayedDied += GameOverScreen;
-        LoadCanvas.SetActive(false);
-        gameOverScreen.SetActive(false);
+        if (progressSlider != null) progressSlider.value = 0;
+        
+        if (LoadCanvas != null) LoadCanvas.SetActive(false);
+        if (gameOverScreen != null) gameOverScreen.SetActive(false);
+        if (gameWinScreen != null) gameWinScreen.SetActive(false);
     }
 
-    void GameOverScreen()
+    void GameOver()
     {
-        gameOverScreen.SetActive(true);
-        survivedText.text = "YOU SURVIVED " + survivedLevelsCount + " LEVELS";
-        //if (survivedLevelsCount != 1) survivedText.text += "S";
-        Time.timeScale = 0;
+        if (gameOverScreen != null)
+        {
+            gameOverScreen.SetActive(true);
+            survivedText.text = "YOU SURVIVED " + survivedLevelsCount + " LEVELS";
+            Time.timeScale = 0;
+        }
+    }
+
+    void GameWin()
+    {
+        if (gameWinScreen != null)
+        {
+            gameWinScreen.SetActive(true);
+            Time.timeScale = 0;
+        }
     }
 
     public void ResetGame()
     {
-        gameOverScreen.SetActive(false);
-        survivedLevelsCount = 0;
-        LoadLevel(0, false);
-        OnReset.Invoke();
+        // --- PERBAIKAN ERROR ---
         Time.timeScale = 1;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        // Baris OnReset.Invoke() dihapus dari sini
     }
 
     void IncreaseProgressAmount(int amount)
     {
         progressAmount += amount;
-        progressSlider.value = progressAmount;
+        if (progressSlider != null) progressSlider.value = progressAmount;
 
         if (progressAmount >= 100)
         {
-            LoadCanvas.SetActive(true);
-            Debug.Log("Level Complete");
+            // --- PERBAIKAN LOGIKA MENANG ---
+            if (currentLevelIndex >= levels.Count - 1)
+            {
+                GameWin();
+            }
+            else
+            {
+                if (LoadCanvas != null) LoadCanvas.SetActive(true);
+                Debug.Log("Level Complete, hold to load next level!");
+            }
         }
     }
 
     void LoadLevel(int level, bool wantSurvivedIncrease)
     {
-        LoadCanvas.SetActive(false);
+        if (LoadCanvas != null) LoadCanvas.SetActive(false);
 
         levels[currentLevelIndex].gameObject.SetActive(false);
         levels[level].gameObject.SetActive(true);
 
-        player.transform.position = new Vector3(0, 0, 0);
+        if (player != null) player.transform.position = Vector3.zero;
 
         currentLevelIndex = level;
         progressAmount = 0;
-        progressSlider.value = 0;
-        if(wantSurvivedIncrease) survivedLevelsCount++;
+        if (progressSlider != null) progressSlider.value = 0;
+        
+        if (wantSurvivedIncrease) survivedLevelsCount++;
     }
 
     void LoadNextLevel()
     {
-        int nextLevelIndex = (currentLevelIndex == levels.Count - 1) ? 0 : currentLevelIndex + 1;
-        LoadLevel(nextLevelIndex, true);
+        // Logika di sini tidak perlu diubah, karena sudah ditangani di IncreaseProgressAmount
+        int nextLevelIndex = currentLevelIndex + 1;
+        if (nextLevelIndex < levels.Count)
+        {
+            LoadLevel(nextLevelIndex, true);
+        }
     }
 }
